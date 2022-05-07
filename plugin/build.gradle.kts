@@ -19,6 +19,7 @@ repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
     google()
+
 }
 
 dependencies {
@@ -35,6 +36,7 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
 
     implementation("org.ow2.asm:asm-util:7.0")
+    implementation("org.ow2.asm:asm-commons:7.0")
     implementation("com.android.tools.build:gradle-api:7.1.3")
 }
 
@@ -64,3 +66,24 @@ tasks.named<Task>("check") {
     // Run the functional tests as part of `check`
     dependsOn(functionalTest)
 }
+
+
+group ="com.lch.aop.plugin"
+version ="1.4.6"
+
+publishing {
+    publications {
+        create<MavenPublication>("aopplugin2") {
+            from(components["java"])
+        }
+    }
+
+    repositories {
+        maven {
+            name = "myRepo"
+            //url =uri("~/.m2/repository")
+            url = uri(layout.buildDirectory.dir("repo"))
+        }
+    }
+}
+

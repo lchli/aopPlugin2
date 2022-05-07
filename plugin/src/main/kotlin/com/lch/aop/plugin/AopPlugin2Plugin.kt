@@ -3,10 +3,18 @@
  */
 package com.lch.aop.plugin
 
+import com.android.build.api.artifact.Artifact
+import com.android.build.api.artifact.ArtifactKind
+import com.android.build.api.artifact.MultipleArtifact
 import com.android.build.api.instrumentation.*
 import com.android.build.api.variant.AndroidComponentsExtension
+import groovyjarjarasm.asm.Opcodes
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
+import org.gradle.api.file.Directory
+import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.internal.component.ArtifactType
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.objectweb.asm.ClassVisitor
@@ -18,7 +26,6 @@ import java.io.PrintWriter
  * A simple 'hello world' plugin.
  */
 class AopPlugin2Plugin: Plugin<Project> {
-
 
     override fun apply(project: Project) {
 
@@ -33,6 +40,26 @@ class AopPlugin2Plugin: Plugin<Project> {
         }
     }
 
+
+
+
+//    override fun apply(project: Project) {
+//
+//        val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
+//
+//        androidComponents.onVariants { variant ->
+//            println("variant : ${variant.artifacts}")
+//
+//            val taskProvider =
+//                project.tasks.register("${variant.name}ModifyClasses",ModifyClassesTask::class.java)
+//
+//            variant.artifacts.use<ModifyClassesTask>(taskProvider)
+//                .wiredWith(ModifyClassesTask::allClasses, ModifyClassesTask::output)
+//                .toTransform(MultipleArtifact.ALL_CLASSES_JARS)
+//        }
+//    }
+
+
     interface ExampleParams : InstrumentationParameters {
         @get:Input
         val writeToStdout: Property<Boolean>
@@ -44,15 +71,14 @@ class AopPlugin2Plugin: Plugin<Project> {
             classContext: ClassContext,
             nextClassVisitor: ClassVisitor
         ): ClassVisitor {
-            return if (parameters.get().writeToStdout.get()) {
-                TraceClassVisitor(nextClassVisitor, PrintWriter(System.out))
-            } else {
-                TraceClassVisitor(nextClassVisitor, PrintWriter(File("trace_out")))
-            }
+            val collectedIgnoreMethod = ArrayList<String>()
+//            val aTraceClassAdapter =
+//                TraceClassAdapter(Opcodes.ASM7, nextClassVisitor, collectedIgnoreMethod);
+            return FindMethodInfoVisitor(nextClassVisitor)
         }
 
         override fun isInstrumentable(classData: ClassData): Boolean {
-            return classData.className.startsWith("com.example")
+            return true//classData.className.startsWith("com.example")
         }
     }
 }
