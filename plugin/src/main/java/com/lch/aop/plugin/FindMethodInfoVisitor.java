@@ -1,7 +1,6 @@
 package com.lch.aop.plugin;
 
 
-
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -20,30 +19,21 @@ import java.util.ListIterator;
 
 
 public class FindMethodInfoVisitor extends ClassNode {
-    private final ClassVisitor nextClassVisitor;
-    private String className;
-    private String superName;
-    private boolean isABSClass = false;
-      List<String> collectedIgnoreMethod ;
 
+    private final ClassVisitor nextClassVisitor;
 
     public FindMethodInfoVisitor(ClassVisitor nextClassVisitor) {
         super(Opcodes.ASM7);
-       // this.collectedIgnoreMethod=collectedIgnoreMethod;
-        this.nextClassVisitor=nextClassVisitor;
+        this.nextClassVisitor = nextClassVisitor;
     }
 
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         super.visit(version, access, name, signature, superName, interfaces);
-
-        this.className = name;
-        this.superName = superName;
-        if ((access & Opcodes.ACC_ABSTRACT) > 0 || (access & Opcodes.ACC_INTERFACE) > 0) {
-            this.isABSClass = true;
-        }
-
+//        if ((access & Opcodes.ACC_ABSTRACT) > 0 || (access & Opcodes.ACC_INTERFACE) > 0) {
+//            this.isABSClass = true;
+//        }
     }
 
     @Override
@@ -51,35 +41,35 @@ public class FindMethodInfoVisitor extends ClassNode {
         super.visitEnd();
         Iterator<MethodNode> methodsIter = methods.iterator();
 
-        while(methodsIter.hasNext()){
+        while (methodsIter.hasNext()) {
             MethodNode methodNode = methodsIter.next();
-            if(isEmptyMethod(methodNode)||isSingleMethod(methodNode)||isGetSetMethod(methodNode)){
+            if (isEmptyMethod(methodNode) || isSingleMethod(methodNode) || isGetSetMethod(methodNode)) {
                 continue;
             }
-            AbstractInsnNode   callSuperOrThisIns=null;
-            if(methodNode.name.equals("<init>")){
+            AbstractInsnNode callSuperOrThisIns = null;
+            if (methodNode.name.equals("<init>")) {
                 AbstractInsnNode first = methodNode.instructions.getFirst();
-                if(first instanceof MethodInsnNode){//call super/this
-                    MethodInsnNode firstIns= (MethodInsnNode) first;
-                    if(firstIns.getOpcode()==Opcodes.INVOKESPECIAL&&  firstIns.name.equals("<init>")){
-                        callSuperOrThisIns=firstIns;
+                if (first instanceof MethodInsnNode) {//call super/this
+                    MethodInsnNode firstIns = (MethodInsnNode) first;
+                    if (firstIns.getOpcode() == Opcodes.INVOKESPECIAL && firstIns.name.equals("<init>")) {
+                        callSuperOrThisIns = firstIns;
                     }
                 }
             }
 
-            InsnList startlist=new InsnList();
+            InsnList startlist = new InsnList();
             MethodInsnNode nullCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
                     TraceBuildConstants.MATRIX_TRACE_CLASS, "i",
                     "()V", false);
             startlist.add(nullCheck);
-            if(callSuperOrThisIns!=null){
-                methodNode.instructions.insert(callSuperOrThisIns,startlist);
-            }else {
+            if (callSuperOrThisIns != null) {
+                methodNode.instructions.insert(callSuperOrThisIns, startlist);
+            } else {
                 methodNode.instructions.insert(startlist);
             }
 
             ListIterator<AbstractInsnNode> instructionsIter = methodNode.instructions.iterator();
-            while(instructionsIter.hasNext()){
+            while (instructionsIter.hasNext()) {
                 AbstractInsnNode abstractInsnNode = instructionsIter.next();
                 switch (abstractInsnNode.getOpcode()) {
                     case Opcodes.RETURN:
@@ -88,14 +78,13 @@ public class FindMethodInfoVisitor extends ClassNode {
                     case Opcodes.FRETURN:
                     case Opcodes.ARETURN:
                     case Opcodes.DRETURN:
-                    case Opcodes.ATHROW:
-                    {
-                        InsnList endlist=new InsnList();
+                    case Opcodes.ATHROW: {
+                        InsnList endlist = new InsnList();
                         MethodInsnNode nullCheck2 = new MethodInsnNode(Opcodes.INVOKESTATIC,
                                 TraceBuildConstants.MATRIX_TRACE_CLASS, "o",
                                 "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
-                        endlist.add(new LdcInsnNode(className));
                         endlist.add(new LdcInsnNode(name));
+                        endlist.add(new LdcInsnNode(methodNode.name));
                         endlist.add(new LdcInsnNode(methodNode.desc));
                         endlist.add(nullCheck2);
                         methodNode.instructions.insertBefore(abstractInsnNode, endlist);
@@ -125,7 +114,7 @@ public class FindMethodInfoVisitor extends ClassNode {
 //    }
 
     private boolean isEmptyMethod(MethodNode methodNode) {
-        ListIterator<AbstractInsnNode> iterator =methodNode. instructions.iterator();
+        ListIterator<AbstractInsnNode> iterator = methodNode.instructions.iterator();
         while (iterator.hasNext()) {
             AbstractInsnNode insnNode = iterator.next();
             int opcode = insnNode.getOpcode();
@@ -137,6 +126,7 @@ public class FindMethodInfoVisitor extends ClassNode {
         }
         return true;
     }
+
     private boolean isGetSetMethod(MethodNode methodNode) {
         int ignoreCount = 0;
         ListIterator<AbstractInsnNode> iterator = methodNode.instructions.iterator();
@@ -210,9 +200,9 @@ public class FindMethodInfoVisitor extends ClassNode {
                 isConstructor = true;
             }
             // filter simple methods
-            if ((isEmptyMethod() || isGetSetMethod() || isSingleMethod())) {
-                collectedIgnoreMethod.add(name + "-" + desc);
-            }
+//            if ((isEmptyMethod() || isGetSetMethod() || isSingleMethod())) {
+//                collectedIgnoreMethod.add(name + "-" + desc);
+//            }
 
             /////////
 //            AbstractInsnNode enterInsnNode=instructions.getFirst();;
@@ -222,7 +212,7 @@ public class FindMethodInfoVisitor extends ClassNode {
 //                    enterInsnNode=initConstructorInstructionNode;
 //                }
 //            }
-            InsnList startlist=new InsnList();
+            InsnList startlist = new InsnList();
             MethodInsnNode nullCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
                     TraceBuildConstants.MATRIX_TRACE_CLASS, "i",
                     "()V", false);
@@ -231,7 +221,7 @@ public class FindMethodInfoVisitor extends ClassNode {
 
             instructions.insert(startlist);
 
-           addTraceReturn();
+            addTraceReturn();
         }
 
         private void addTraceReturn() {
@@ -244,7 +234,7 @@ public class FindMethodInfoVisitor extends ClassNode {
 
                 switch (abstractInsnNode.getOpcode()) {
                     case Opcodes.RETURN: {
-                        InsnList endlist=new InsnList();
+                        InsnList endlist = new InsnList();
                         MethodInsnNode nullCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
                                 TraceBuildConstants.MATRIX_TRACE_CLASS, "o",
                                 "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
@@ -254,13 +244,13 @@ public class FindMethodInfoVisitor extends ClassNode {
                         endlist.add(nullCheck);
                         il.insertBefore(abstractInsnNode, endlist);
                     }
-                        break;
+                    break;
                     case Opcodes.IRETURN:
                     case Opcodes.LRETURN:
                     case Opcodes.FRETURN:
                     case Opcodes.ARETURN:
                     case Opcodes.DRETURN: {
-                        InsnList endlist=new InsnList();
+                        InsnList endlist = new InsnList();
                         MethodInsnNode nullCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
                                 TraceBuildConstants.MATRIX_TRACE_CLASS, "o",
                                 "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
