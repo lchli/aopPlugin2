@@ -3,82 +3,77 @@
  */
 package com.lch.aop.plugin
 
-import com.android.build.api.artifact.Artifact
-import com.android.build.api.artifact.ArtifactKind
-import com.android.build.api.artifact.MultipleArtifact
 import com.android.build.api.instrumentation.*
 import com.android.build.api.variant.AndroidComponentsExtension
-import groovyjarjarasm.asm.Opcodes
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.Task
-import org.gradle.api.file.Directory
-import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.internal.component.ArtifactType
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.objectweb.asm.ClassVisitor
-import org.objectweb.asm.util.TraceClassVisitor
-import java.io.File
-import java.io.PrintWriter
 
 /**
  * A simple 'hello world' plugin.
  */
-class AopPlugin2Plugin: Plugin<Project> {
+class AopPlugin2Plugin : Plugin<Project> {
 
     override fun apply(project: Project) {
+
+        val extension = project.extensions.create(
+            ApmPluginConfig.PLUGIN_EXTEND_NAME,
+            ApmPluginExtension::class.java
+        )
+        if (!extension.isOpenAop) {
+            ApmPluginConfig.log("插件开关未打开")
+            return
+        }
+
+        val scope =
+            if (extension.isAopAllProject) InstrumentationScope.ALL else InstrumentationScope.PROJECT
+
+        ApmPluginConfig.log("aop scope:${scope.name}")
 
         val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
 
         androidComponents.onVariants { variant ->
-            variant.transformClassesWith(ExampleClassVisitorFactory::class.java,
-                InstrumentationScope.ALL) {
-                it.writeToStdout.set(true)
+            variant.transformClassesWith(
+                ExampleClassVisitorFactory::class.java,
+                scope
+            ) {
+                it.isAopMethod = extension.isAopMethod
+                it.isAopClass = extension.isAopClass
             }
             variant.setAsmFramesComputationMode(FramesComputationMode.COPY_FRAMES)
         }
     }
 
 
-
-
-//    override fun apply(project: Project) {
-//
-//        val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
-//
-//        androidComponents.onVariants { variant ->
-//            println("variant : ${variant.artifacts}")
-//
-//            val taskProvider =
-//                project.tasks.register("${variant.name}ModifyClasses",ModifyClassesTask::class.java)
-//
-//            variant.artifacts.use<ModifyClassesTask>(taskProvider)
-//                .wiredWith(ModifyClassesTask::allClasses, ModifyClassesTask::output)
-//                .toTransform(MultipleArtifact.ALL_CLASSES_JARS)
-//        }
-//    }
-
-
-    interface ExampleParams : InstrumentationParameters {
-        @get:Input
-        val writeToStdout: Property<Boolean>
-    }
-
-    abstract class ExampleClassVisitorFactory : AsmClassVisitorFactory<ExampleParams> {
+    abstract class ExampleClassVisitorFactory : AsmClassVisitorFactory<ApmParams> {
 
         override fun createClassVisitor(
             classContext: ClassContext,
             nextClassVisitor: ClassVisitor
         ): ClassVisitor {
-            val collectedIgnoreMethod = ArrayList<String>()
-//            val aTraceClassAdapter =
-//                TraceClassAdapter(Opcodes.ASM7, nextClassVisitor, collectedIgnoreMethod);
-            return FindMethodInfoVisitor(nextClassVisitor)
+            return FindMethodInfoVisitor(nextClassVisitor, parameters.orNull)
         }
 
         override fun isInstrumentable(classData: ClassData): Boolean {
-            return true//classData.className.startsWith("com.example")
+            if (ApmPluginConfig.isIgnoredByPlugin(classData.className)) {
+                ApmPluginConfig.log("被插件忽略的类:${classData.className}")
+                return false
+            }
+            if (!isAcceptByUser(classData)) {
+                ApmPluginConfig.log("被用户忽略的类:${classData.className}")
+                return false
+            }
+            return true
+        }
+
+        private fun isAcceptByUser(classData: ClassData): Boolean {
+            val apmParams = parameters.orNull
+            if (apmParams?.isAopClass == null) {
+                return true
+            }
+            return apmParams.isAopClass.invoke(classData.className)
         }
     }
 }
