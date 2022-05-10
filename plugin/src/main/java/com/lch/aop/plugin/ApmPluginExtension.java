@@ -8,5 +8,4 @@ public class ApmPluginExtension {
     public boolean isAopAllProject = true;
     public Function1<String, Boolean> isAopClass;
     public Function3<String, String, String, Boolean> isAopMethod;
-
 }

@@ -7,7 +7,7 @@ import org.objectweb.asm.commons.AdviceAdapter;
 
 import java.util.List;
 
-
+@Deprecated
 public class TraceClassAdapter extends ClassVisitor {
 
     private String className;
@@ -70,7 +70,7 @@ public class TraceClassAdapter extends ClassVisitor {
             }
             System.err.println("onMethodEnter:"+getName() + "-" + methodDesc);
             mv.visitLdcInsn(0);
-            mv.visitMethodInsn(INVOKESTATIC, TraceBuildConstants.MATRIX_TRACE_CLASS, "i", "(I)V", false);
+            mv.visitMethodInsn(INVOKESTATIC, ApmPluginConfig.APM_TRACE_CLASS, "i", "(I)V", false);
         }
 
 
@@ -83,7 +83,7 @@ public class TraceClassAdapter extends ClassVisitor {
             mv.visitLdcInsn(classname);
             mv.visitLdcInsn(getName());
             mv.visitLdcInsn(methodDesc);
-            mv.visitMethodInsn(INVOKESTATIC, TraceBuildConstants.MATRIX_TRACE_CLASS, "o", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
+            mv.visitMethodInsn(INVOKESTATIC, ApmPluginConfig.APM_TRACE_CLASS, "o", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
         }
 
 

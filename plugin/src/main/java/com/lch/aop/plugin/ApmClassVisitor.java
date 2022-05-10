@@ -17,13 +17,14 @@ import javax.annotation.Nullable;
 import kotlin.jvm.functions.Function3;
 
 
-public class FindMethodInfoVisitor extends ClassNode {
+public class ApmClassVisitor extends ClassNode {
 
     private final ClassVisitor nextClassVisitor;
+
     @Nullable
     private ApmParams params;
 
-    public FindMethodInfoVisitor(ClassVisitor nextClassVisitor, @Nullable ApmParams params) {
+    public ApmClassVisitor(ClassVisitor nextClassVisitor, @Nullable ApmParams params) {
         super(Opcodes.ASM7);
         this.nextClassVisitor = nextClassVisitor;
         this.params = params;
@@ -44,35 +45,37 @@ public class FindMethodInfoVisitor extends ClassNode {
         }
 
         for (MethodNode methodNode : methods) {
-            if (isEmptyMethod(methodNode) ||
-                    isSingleMethod(methodNode) ||
-                    isGetSetMethod(methodNode) ||
-                    isAbstractMethod(methodNode) ||
-                    isNativeMethod(methodNode) ||
-                    isIgnoredMethodByUser(methodNode)) {
+
+            if (isIgnoredMethodByUser(methodNode)
+                    || isNativeMethod(methodNode)
+                    || isAbstractMethod(methodNode)
+                    || isEmptyMethod(methodNode)
+                    || isSingleMethod(methodNode)
+                    || isGetSetMethod(methodNode)
+            ) {
                 continue;
             }
-
             AbstractInsnNode callSuperOrThisIns = null;
+
             if (methodNode.name.equals("<init>")) {
                 AbstractInsnNode first = methodNode.instructions.getFirst();
-                if (first instanceof MethodInsnNode) {//call super/this
+                if (first instanceof MethodInsnNode) {
                     MethodInsnNode firstIns = (MethodInsnNode) first;
-                    if (firstIns.getOpcode() == Opcodes.INVOKESPECIAL && firstIns.name.equals("<init>")) {
+                    if (firstIns.getOpcode() == Opcodes.INVOKESPECIAL && firstIns.name.equals("<init>")) {//call super OR this
                         callSuperOrThisIns = firstIns;
                     }
                 }
             }
 
-            InsnList startlist = new InsnList();
-            MethodInsnNode nullCheck = new MethodInsnNode(Opcodes.INVOKESTATIC,
-                    TraceBuildConstants.MATRIX_TRACE_CLASS, "i",
+            InsnList insertedStartList = new InsnList();
+            MethodInsnNode traceStartInsn = new MethodInsnNode(Opcodes.INVOKESTATIC,
+                    ApmPluginConfig.APM_TRACE_CLASS, ApmPluginConfig.APM_TRACE_START_METHOD,
                     "()V", false);
-            startlist.add(nullCheck);
+            insertedStartList.add(traceStartInsn);
             if (callSuperOrThisIns != null) {
-                methodNode.instructions.insert(callSuperOrThisIns, startlist);
+                methodNode.instructions.insert(callSuperOrThisIns, insertedStartList);
             } else {
-                methodNode.instructions.insert(startlist);
+                methodNode.instructions.insert(insertedStartList);
             }
 
             ListIterator<AbstractInsnNode> instructionsIter = methodNode.instructions.iterator();
@@ -86,22 +89,22 @@ public class FindMethodInfoVisitor extends ClassNode {
                     case Opcodes.ARETURN:
                     case Opcodes.DRETURN:
                     case Opcodes.ATHROW: {
-                        InsnList endlist = new InsnList();
-                        MethodInsnNode nullCheck2 = new MethodInsnNode(Opcodes.INVOKESTATIC,
-                                TraceBuildConstants.MATRIX_TRACE_CLASS, "o",
+                        InsnList insertedEndList = new InsnList();
+                        MethodInsnNode traceEndInsn = new MethodInsnNode(Opcodes.INVOKESTATIC,
+                                ApmPluginConfig.APM_TRACE_CLASS, ApmPluginConfig.APM_TRACE_END_METHOD,
                                 "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
-                        endlist.add(new LdcInsnNode(name));
-                        endlist.add(new LdcInsnNode(methodNode.name));
-                        endlist.add(new LdcInsnNode(methodNode.desc));
-                        endlist.add(nullCheck2);
-                        methodNode.instructions.insertBefore(abstractInsnNode, endlist);
+                        insertedEndList.add(new LdcInsnNode(name));
+                        insertedEndList.add(new LdcInsnNode(methodNode.name));
+                        insertedEndList.add(new LdcInsnNode(methodNode.desc));
+                        insertedEndList.add(traceEndInsn);
+
+                        methodNode.instructions.insertBefore(abstractInsnNode, insertedEndList);
                     }
                 }
             }
 
 
         }
-
 
         accept(nextClassVisitor);
     }
@@ -118,7 +121,6 @@ public class FindMethodInfoVisitor extends ClassNode {
         if (isAopMethod == null) {
             return false;
         }
-
         return isAopMethod.invoke(name.replaceAll("/", "."),
                 methodNode.name, methodNode.desc);
     }
@@ -158,14 +160,12 @@ public class FindMethodInfoVisitor extends ClassNode {
                     && opcode != Opcodes.GETSTATIC
                     && opcode != Opcodes.H_GETFIELD
                     && opcode != Opcodes.H_GETSTATIC
-
                     && opcode != Opcodes.RETURN
                     && opcode != Opcodes.ARETURN
                     && opcode != Opcodes.DRETURN
                     && opcode != Opcodes.FRETURN
                     && opcode != Opcodes.LRETURN
                     && opcode != Opcodes.IRETURN
-
                     && opcode != Opcodes.PUTFIELD
                     && opcode != Opcodes.PUTSTATIC
                     && opcode != Opcodes.H_PUTFIELD

@@ -42,9 +42,9 @@ dependencies {
 
 gradlePlugin {
     // Define the plugin
-    val greeting by plugins.creating {
+    val apm by plugins.creating {
         id = "com.lch.aop.plugin"
-        implementationClass = "com.lch.aop.plugin.AopPlugin2Plugin"
+        implementationClass = "com.lch.aop.plugin.ApmPlugin"
     }
 }
 
