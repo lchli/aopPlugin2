@@ -2,18 +2,32 @@ package com.lch.aop.plugin
 
 import com.android.build.api.instrumentation.*
 import com.android.build.api.variant.AndroidComponentsExtension
+import com.android.build.api.variant.Variant
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.objectweb.asm.ClassVisitor
 
 class ApmPlugin : Plugin<Project> {
 
-    override fun apply(project: Project) {
+    companion object{
+        lateinit var gApmPluginExtension: ApmPluginExtension
 
+    }
+
+    override fun apply(project: Project) {
         val extension = project.extensions.create(
             ApmPluginConfig.PLUGIN_EXTEND_NAME,
             ApmPluginExtension::class.java
         )
+        gApmPluginExtension=extension
+
+        val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
+        androidComponents.onVariants { variant ->
+            doOnVariant(variant, extension)
+        }
+    }
+
+    private fun doOnVariant(variant: Variant, extension: ApmPluginExtension) {
         if (!extension.isOpenAop) {
             LogUtil.log("插件开关未打开")
             return
@@ -23,17 +37,13 @@ class ApmPlugin : Plugin<Project> {
 
         LogUtil.log("aop scope:${scope.name}")
 
-        val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
-        androidComponents.onVariants { variant ->
-            variant.transformClassesWith(
-                ApmClassVisitorFactory::class.java,
-                scope
-            ) {
-                it.isAopMethod = extension.isAopMethod
-                it.isAopClass = extension.isAopClass
-            }
-            variant.setAsmFramesComputationMode(FramesComputationMode.COPY_FRAMES)
+        variant.transformClassesWith(
+            ApmClassVisitorFactory::class.java,
+            scope
+        ) {
         }
+
+        variant.setAsmFramesComputationMode(FramesComputationMode.COPY_FRAMES)
     }
 
 
@@ -45,18 +55,18 @@ class ApmPlugin : Plugin<Project> {
         ): ClassVisitor {
             return ApmClassVisitor(
                 nextClassVisitor,
-                parameters.orNull
+                gApmPluginExtension
             )
         }
 
         override fun isInstrumentable(classData: ClassData): Boolean {
             if (ApmPluginConfig.isIgnoredByPlugin(classData.className)) {
-                LogUtil.log("被插件忽略的类:${classData.className}")
+                //LogUtil.log("被插件忽略的类:${classData.className}")
                 return false
             }
 
             if (!isAcceptByUser(classData)) {
-                LogUtil.log("被用户忽略的类:${classData.className}")
+                //LogUtil.log("被用户忽略的类:${classData.className}")
                 return false
             }
 
@@ -64,11 +74,10 @@ class ApmPlugin : Plugin<Project> {
         }
 
         private fun isAcceptByUser(classData: ClassData): Boolean {
-            val apmParams = parameters.orNull
-            if (apmParams?.isAopClass == null) {
+            if (gApmPluginExtension.isAopClass == null) {
                 return true
             }
-            return apmParams.isAopClass.invoke(classData.className)
+            return gApmPluginExtension.isAopClass.invoke(classData.className)
         }
     }
 }

@@ -69,7 +69,7 @@ tasks.named<Task>("check") {
 
 
 group ="com.lch.aop.plugin"
-version ="1.5.22"
+version ="1.6.6"
 
 publishing {
     publications {

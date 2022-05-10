@@ -12,8 +12,6 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ListIterator;
 
-import javax.annotation.Nullable;
-
 import kotlin.jvm.functions.Function3;
 
 
@@ -21,10 +19,9 @@ public class ApmClassVisitor extends ClassNode {
 
     private final ClassVisitor nextClassVisitor;
 
-    @Nullable
-    private ApmParams params;
+    private ApmPluginExtension params;
 
-    public ApmClassVisitor(ClassVisitor nextClassVisitor, @Nullable ApmParams params) {
+    public ApmClassVisitor(ClassVisitor nextClassVisitor, ApmPluginExtension params) {
         super(Opcodes.ASM7);
         this.nextClassVisitor = nextClassVisitor;
         this.params = params;
@@ -121,7 +118,7 @@ public class ApmClassVisitor extends ClassNode {
         if (isAopMethod == null) {
             return false;
         }
-        return isAopMethod.invoke(name.replaceAll("/", "."),
+        return !isAopMethod.invoke(name.replaceAll("/", "."),
                 methodNode.name, methodNode.desc);
     }
 
